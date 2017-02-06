@@ -6,6 +6,7 @@ import re
 import os
 import sys
 import uuid
+import time
 
 import oauth.oauth as oauth
 import requests
@@ -27,18 +28,7 @@ class Inventory:
 
         # Parse command line arguments
         self.cli_handler()
-
-        print json.dumps(self.inventory(), sort_keys=True, indent=2)
-
-        # if self.args.list:
-        #     print json.dumps(self.inventory(), sort_keys=True, indent=2)
-        # elif self.args.host:
-        #     # We're not doing any host specific lookups yet, so just return an empty dict()
-        #     print json.dumps(self.host(), sort_keys=True, indent=2)
-        # elif self.args.nodes:
-        #     print json.dumps(self.nodes(), sort_keys=True, indent=2)
-        # else:
-        #     sys.exit(1)
+        self.inventory()
 
     def auth(self):
         # Split the token from MaaS (Maas UI > username@domain > Account > MaaS Keys)  into its component parts
@@ -60,7 +50,6 @@ class Inventory:
         return {}
 
     def inventory(self):
-        # Look up hosts by tag(s) and return a dict that Ansible will understand as an inventory
         ansible = {}
 
         headers = self.auth()
@@ -78,8 +67,6 @@ class Inventory:
                 "vars": {}
                 }
 
-        # PS 2015-09-03: Create metadata block for Ansible's Dynamic Inventory
-        # The below code gets a dump of ALL nodes in MaaS and then builds out a _meta JSON attribute.
         node_dump = self.nodes()
 
         nodes = {
@@ -87,16 +74,27 @@ class Inventory:
                 'hostvars': {}
             }
         }
-        for node in node_dump:
-            if 'owner' in node.keys():
-                # print(node['owner']) 
-                if node['owner'] == None:
-                    nodes['_meta']['hostvars'][node['hostname']] = {
-                        'system_id': node['system_id'],
-                        'resource_uri': node['resource_uri']
-                    }
 
-        # Need to merge ansible and nodes dict()s as a shallow copy, or Ansible shits itself and throws an error
+
+        # the allocate method will grab an un-allocated node and allocate
+        headers1 = self.auth()
+        headers1['Accept'] = 'application/json'
+        url1 = "%s/machines/?op=allocate" % (self.maas.rstrip())
+        request1 = requests.post(url1, headers=headers1)
+        # wait for machine
+        time.sleep(30) 
+
+        response = json.loads(request1.text)
+        deployed_node = response["system_id"]
+
+        # deploy Ubuntu
+        headers2 = self.auth()
+        headers2['Accept'] = 'application/json'
+        url2 = "%s/machines/%s/?op=deploy" % (self.maas.rstrip(), deployed_node)
+        request2 = requests.post(url2, headers=headers2)
+        # wait for machine
+        time.sleep(30) 
+
         result = ansible.copy()
         result.update(nodes)
         return result
