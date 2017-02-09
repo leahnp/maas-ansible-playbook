@@ -92,8 +92,6 @@ class Inventory:
             if len(hosts):
                 ansible[group_name[2]] = hosts
 
-        # PS 2015-09-03: Create metadata block for Ansible's Dynamic Inventory
-        # The below code gets a dump of ALL nodes in MaaS and then builds out a _meta JSON attribute.
         node_dump = self.nodes()
         nodes = {
             '_meta': {
@@ -123,7 +121,6 @@ class Inventory:
     def nodes(self):
         # Return a list of nodes from the MaaS API (DEBUGGING PURPOSES ONLY)
         headers = self.auth()
-        # See https://maas.ubuntu.com/docs1.8/api.html for API docs
         url = "%s/nodes/?op=list" % self.maas.rstrip()
         request = requests.get(url, headers=headers)
         response = json.loads(request.text)
