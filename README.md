@@ -1,6 +1,6 @@
 # Maas Ansible Playbook
 
-Script that allocates a single node on MAAS and deploys an operating system. This script returns the IP address for the machine that you can use to run an ansible task which installs a package. This was a research project and PoC. 
+Script that allocates a single node on MAAS and deploys an operating system. This script returns the IP address for the machine that you can use to run an Ansible task which installs a package. This was a research project. 
 
 ## Installation
 
@@ -21,7 +21,7 @@ When the script is complete, take the IP address in the output and run:
 
   `ansible-playbook -i <IP>, -u ubuntu -e 'ansible_python_interpreter=/usr/bin/python3' install_pkg.yml`
 
-NOTES: I was running Ubuntu 16.04 LTS "Xenial Xerus" for my OS - which comes with python3, so I have to explicitly tell ansible where to find python. Also I install packages under the Ubuntu user (-u), these my differ for your setup.
+NOTES: I was running Ubuntu 16.04 LTS "Xenial Xerus" for my OS - which comes with Python3, so I have to explicitly tell Ansible where to find Python. Also I install packages under the Ubuntu user (-u), these my differ for your setup.
 
 If you want to run your ansible task on more than one machine, put them in a comma separated list after the first IP.
 
