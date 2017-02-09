@@ -1,0 +1,9 @@
+---
+- hosts: all
+  sudo: True
+  tasks:
+    - name: netcat
+      apt: pkg=netcat
+
+    - name: birdfont
+      apt: pkg=birdfont
