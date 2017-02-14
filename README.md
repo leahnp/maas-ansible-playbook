@@ -42,4 +42,3 @@ Original ticket: https://github.com/samsung-cnct/k2/issues/142
 Things to consider with Ansible-MAAS integration:
   - Since the machines I was using for this exercise did not have operating systems Ansible could not ssh onto the machine to do the first task of allocating and deploying an os. 
   - You can have your "inventory" script return the machines you want Ansible to you by passing -i script.py
-  - In this repository you will also find a more general script to return specific MAAS machines that are already allocated and deployed to, some aspect of this could be of use in the future. 
