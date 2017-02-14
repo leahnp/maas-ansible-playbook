@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import argparse
+import base64
 import json
 import re
 import sys
@@ -10,74 +11,101 @@ import oauth.oauth as oauth
 import requests
 
 
-class Inventory:
-
-    def __init__(self):
-        # set these vars in your terminal
-        # export MAAS_API_KEY=<my_api_key>
-        # export MAAS_API_URL=http://<my_maas_server>/MAAS/api/2.0
-        self.maas = os.environ.get("MAAS_API_URL", None)
-        if not self.maas:
-            sys.exit("no MAAS_API_KEY environmental variable found. Set this to http<s>://<IP>/MAAS/api/2.0")
-        self.token = os.environ.get("MAAS_API_KEY", None)
-        if not self.token:
-            sys.exit("no MAAS_API_KEY environmental variable found. See https://maas.ubuntu.com/docs/juju-quick-start.html#getting-a-key for getting a MAAS API KEY")
-        self.args = None
-
-        # Parse command line arguments
-        self.cli_handler()
-        self.get_node()
+# set these vars in your terminal
+# export MAAS_API_KEY=<my_api_key>
+# export MAAS_API_URL=http://<my_maas_server>/MAAS/api/2.0
+maas = os.environ.get("MAAS_API_URL", None)
+if not maas:
+    sys.exit("no MAAS_API_KEY environmental variable found. Set this to http<s>://<IP>/MAAS/api/2.0")
+token = os.environ.get("MAAS_API_KEY", None)
+if not token:
+    sys.exit("no MAAS_API_KEY environmental variable found. See https://maas.ubuntu.com/docs/juju-quick-start.html#getting-a-key for getting a MAAS API KEY")
+args = None
 
 
-    def auth(self):
-        # Split the token from MaaS (Maas UI > username@domain > Account > MaaS Keys)  into its component parts
-        (consumer_key, key, secret) = self.token.split(':')
-        # Format an OAuth header
-        resource_token_string = "oauth_token_secret=%s&oauth_token=%s" % (secret, key)
-        resource_token = oauth.OAuthToken.from_string(resource_token_string)
-        consumer_token = oauth.OAuthConsumer(consumer_key, "")
-        oauth_request = oauth.OAuthRequest.from_consumer_and_token(
-            consumer_token, token=resource_token, http_url=self.maas,
-            parameters={'auth_nonce': uuid.uuid4().get_hex()})
-        oauth_request.sign_request(
-            oauth.OAuthSignatureMethod_PLAINTEXT(), consumer_token, resource_token)
-        headers = oauth_request.to_header()
-        return headers
+# Split the token from MaaS (Maas UI > username@domain > Account > MaaS Keys)  into its component parts
+def auth():
+    global maas, token, args
+    (consumer_key, key, secret) = token.split(':')
+    # Format an OAuth header
+    resource_token_string = "oauth_token_secret=%s&oauth_token=%s" % (secret, key)
+    resource_token = oauth.OAuthToken.from_string(resource_token_string)
+    consumer_token = oauth.OAuthConsumer(consumer_key, "")
+    oauth_request = oauth.OAuthRequest.from_consumer_and_token(
+        consumer_token, token=resource_token, http_url=maas,
+        parameters={'auth_nonce': uuid.uuid4().get_hex()})
+    oauth_request.sign_request(
+        oauth.OAuthSignatureMethod_PLAINTEXT(), consumer_token, resource_token)
+    headers = oauth_request.to_header()
+    return headers
 
-    def get_node(self):
-        headers1 = self.auth()
-        headers1['Accept'] = 'application/json'
-        url1 = "%s/machines/?op=allocate" % (self.maas.rstrip())
-        params = {}
-        request1 = requests.post(url1, headers=headers1,params=params)
-        # wait for machine
-        time.sleep(20) 
+# NOTE: following is useful for debugging how your requests 
+# are being formatted.
+#
+#def pretty_print_POST(req):
+#    """
+#    At this point it is completely built and ready
+#    to be fired; it is "prepared".
+#
+#    However pay attention at the formatting used in 
+#    this function because it is programmed to be pretty 
+#    printed and may differ from the actual request.
+#    """
+#    print('{}\n{}\n{}\n\n{}'.format(
+#        '-----------START-----------',
+#        req.method + ' ' + req.url,
+#        '\n'.join('{}: {}'.format(k, v) for k, v in req.headers.items()),
+#        req.body,
+#    ))
 
-        # set variables from allocated machine
-        response = json.loads(request1.text)
-        deployed_node = response["system_id"]
+#req = requests.Request('POST', url, headers=headers, files=params)
+#prepared = req.prepare()
+#pretty_print_POST(prepared)
 
-        # deploy Ubuntu
-        headers2 = self.auth()
-        headers2['Accept'] = 'application/json'
-        url2 = "%s/machines/%s/?op=deploy" % (self.maas.rstrip(), deployed_node)
-        request2 = requests.post(url2, headers=headers2)
-        # wait for machine to deploy
-        time.sleep(200) 
+def allocate_node():
+    headers = auth()
+    headers['Accept'] = 'application/json'
+    url = "%s/machines/?op=allocate" % (maas.rstrip())
+    params = {}
+    response = requests.post(url, headers=headers, files=params)
+    data = json.loads(response.text)
+    return data
 
-        # get IP address and print
-        response2 = json.loads(request2.text)
-        deployed_node = response2['interface_set'][0]['links'][0]['ip_address']
-        print(deployed_node)
+def deploy_node(system_id):
+    # deploy Ubuntu
+    headers = auth()
+    headers['Accept'] = 'application/json'
+    url = "%s/machines/%s/?op=deploy" % (maas.rstrip(), system_id)
+    # PoC for cloud-init
+    cloud_init_script = """
+#cloud-config
+write_files:
+  - path: /home/ubuntu/cloud_test.txt
+    owner: ubuntu:ubuntu
+    content: |
+      Birdfont.
+      Netcatz.
+"""
+    user_data = base64.b64encode(cloud_init_script)
+    # NOTE: the requests API lets you pass a map of parameters which will
+    # be encoded using the multipart/form-data encoding. ***If you
+    # pass the obvious of {'user_data': user_data} the user_data part will
+    # be encoded like:
+    # Content-Disposition: form-data; name="user_data"; filename="user_data"
+    # This extra filename property will cause the MAAS API to fail to parse
+    # the parameter.
+    # Instead, you must pass a tuple with an empty first param
+    # to remove the filename parameter and appease MAAS.
+    # passing: params = {'user_data': ('', user_data)}
+    # will be encoded like:
+    # Content-Disposition: form-data; name="user_data"
+    params = {'user_data': ('', user_data)}
+    response = requests.post(url, headers=headers, files=params)
+    data = json.loads(response.text)
+    return data
 
-
-    def cli_handler(self):
-        # Manage command line options and arguments
-        parser = argparse.ArgumentParser(description='Produce an Ansible inventory from Ubuntu MaaS')
-        parser.add_argument('--list', action='store_true', help='List instances by tag (default: True')
-        parser.add_argument('--host', action='store', help='Get variables relating to a specific instance')
-        parser.add_argument('--nodes', action='store_true', help='List all nodes registered under MaaS')
-        self.args = parser.parse_args()
-
-if __name__ == "__main__":
-    Inventory()
+data = allocate_node()
+data = deploy_node(data["system_id"])
+ip_address = data['interface_set'][0]['links'][0]['ip_address']
+print(ip_address)
+# ssh into machine with this ip: $ ssh ubuntu@<ip_address>
