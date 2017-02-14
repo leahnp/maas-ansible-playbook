@@ -4,7 +4,7 @@ Script that allocates a single node on MAAS and deploys an operating system. Thi
 
 ## Installation
 
-This was developed using Ansible 2.2.1.0 and MAAS API version 2.0. 
+Using Ansible 2.2.1.0 and MAAS API version 2.0. 
 
 ## Usage
 
@@ -21,7 +21,7 @@ When the script is complete, take the IP address in the output and run:
 
   `ansible-playbook -i <IP>, -u ubuntu -e 'ansible_python_interpreter=/usr/bin/python3' install_pkg.yml`
 
-NOTES: I was running Ubuntu 16.04 LTS "Xenial Xerus" for my OS - which comes with Python3, so I have to explicitly tell Ansible where to find Python. Also I install packages under the Ubuntu user (-u), these my differ for your setup.
+NOTES: Ubuntu 16.04 LTS "Xenial Xerus" comes with Python3, so you must explicitly tell Ansible where to find Python to run Ansible tasks.
 
 If you want to run your ansible task on more than one machine, put them in a comma separated list after the first IP.
 
