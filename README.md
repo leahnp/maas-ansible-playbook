@@ -1,6 +1,6 @@
 # Maas Ansible Playbook
 
-Script that allocates a single node on MAAS and deploys an operating system. This script returns the IP address for the machine that you can use to run an Ansible task which installs a package. This was a research project. 
+This describes a script that allocates a single node on MAAS, passes a custom cloud-init task and deploys an operating system on the machine. This script returns the IP address for the machine that you can use to run an Ansible task which installs a package. This was a research project and proof of concept.
 
 ## Installation
 
@@ -13,7 +13,7 @@ To use, export environment variables:
         - export MAAS_API_KEY=<my_api_key>
         - export MAAS_API_URL=http://<my_maas_server>/MAAS/api/2.0
 
-Run the script to allocate node and deploy operating system. 
+Run the script to allocate node, run cloud-init and deploy operating system. 
 
   `./ansible_maas_single_machine.py`
 
